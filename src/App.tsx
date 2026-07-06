@@ -164,6 +164,9 @@ function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) 
     .split('\n')
     .map((name) => name.trim())
     .filter(Boolean)
+  const swissEnabled = format === 'swiss'
+  const groupSettingsEnabled = format === 'groups-playoff'
+  const thirdPlaceEnabled = format === 'single-elimination' || format === 'groups-playoff'
 
   const create = () => onCreate(createTournament(title, format, parsedNames, options))
 
@@ -234,7 +237,7 @@ function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) 
               onChange={(event) => setOptions({ ...options, bestOfLabel: event.target.value })}
             />
           </label>
-          <label className="field">
+          <label className={swissEnabled ? 'field' : 'field disabled-field'}>
             <span className="field-title">
               Swiss rounds
               <HelpChip compact label="?" text="Swiss events use a fixed number of rounds. Four rounds works well for 8-16 players." />
@@ -244,10 +247,11 @@ function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) 
               min={1}
               max={12}
               value={options.swissRounds}
+              disabled={!swissEnabled}
               onChange={(event) => setOptions({ ...options, swissRounds: Number(event.target.value) })}
             />
           </label>
-          <label className="field">
+          <label className={groupSettingsEnabled ? 'field' : 'field disabled-field'}>
             <span className="field-title">
               Groups
               <HelpChip compact label="?" text="Group-stage tournaments split players into pools before building the playoff bracket." />
@@ -257,10 +261,11 @@ function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) 
               min={2}
               max={8}
               value={options.groupCount}
+              disabled={!groupSettingsEnabled}
               onChange={(event) => setOptions({ ...options, groupCount: Number(event.target.value) })}
             />
           </label>
-          <label className="field">
+          <label className={groupSettingsEnabled ? 'field' : 'field disabled-field'}>
             <span className="field-title">
               Qualifiers/group
               <HelpChip compact label="?" text="This many top players from each group advance when you press Build playoff." />
@@ -270,13 +275,15 @@ function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) 
               min={1}
               max={4}
               value={options.qualifiersPerGroup}
+              disabled={!groupSettingsEnabled}
               onChange={(event) => setOptions({ ...options, qualifiersPerGroup: Number(event.target.value) })}
             />
           </label>
-          <label className="toggle-field">
+          <label className={thirdPlaceEnabled ? 'toggle-field' : 'toggle-field disabled-field'}>
             <input
               type="checkbox"
               checked={options.thirdPlace}
+              disabled={!thirdPlaceEnabled}
               onChange={(event) => setOptions({ ...options, thirdPlace: event.target.checked })}
             />
             Third-place match

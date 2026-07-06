@@ -184,6 +184,22 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(31, 122, 255, 0.18);
 }
 
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.disabled-field {
+  color: #6f7888;
+  opacity: 0.62;
+}
+
+.disabled-field .help-chip {
+  opacity: 0.75;
+}
+
 .format-grid,
 .config-grid,
 .stats-grid {
