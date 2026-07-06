@@ -35,7 +35,7 @@ TourneyLab runs from GitHub Pages and uses Google Sheets as the database. No Sup
 5. Set "Execute as" to yourself.
 6. Set "Who has access" to anyone.
 7. Copy the web app URL.
-8. Add this env var locally or as a GitHub repository secret:
+8. Add this env var locally or as a GitHub repository variable:
 
 ```bash
 VITE_GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/your-deployment-id/exec
@@ -47,7 +47,7 @@ Public links use `/#/t/:slug`. Spectator pages poll the Sheet every 10 seconds, 
 
 The Vite base path is `/tourneylab/`. The included workflow deploys `main` to GitHub Pages.
 
-Add this repository secret before publishing if shared links should work in production:
+Add this repository variable before publishing if shared links should work in production:
 
 - `VITE_GOOGLE_APPS_SCRIPT_URL`
 
