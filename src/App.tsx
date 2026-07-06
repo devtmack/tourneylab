@@ -137,7 +137,7 @@ function Header({ payload, readOnly }: { payload?: TournamentPayload; readOnly: 
       <div className="topbar-meta">
         <span className="pill">
           <Cloud size={14} />
-          {sharingEnabled ? `${storageLabel} ready` : 'Local mode'}
+          {sharingEnabled ? 'Database connected' : 'Local mode'}
         </span>
         {payload ? (
           <span className="pill">
@@ -399,7 +399,7 @@ function TournamentWorkspace({
         <div className={sharingEnabled ? 'database-card ready' : 'database-card'}>
           <Database size={18} />
           <div>
-            <strong>{sharingEnabled ? `${storageLabel} sharing ready` : 'Database not connected'}</strong>
+            <strong>{sharingEnabled ? 'Database connected' : 'Database not connected'}</strong>
             <p>
               {sharingEnabled
                 ? `Publish this tournament to store it in ${storageLabel}. Viewers can watch the public link update while scores are saved.`

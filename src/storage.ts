@@ -4,7 +4,7 @@ const LOCAL_KEY = 'tourneylab:drafts'
 const googleAppsScriptUrl = import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL as string | undefined
 
 export const sharingEnabled = Boolean(googleAppsScriptUrl)
-export const storageLabel = googleAppsScriptUrl ? 'Google Sheets' : 'Local only'
+export const storageLabel = googleAppsScriptUrl ? 'database' : 'local storage'
 
 export function listDrafts() {
   return readDrafts().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
