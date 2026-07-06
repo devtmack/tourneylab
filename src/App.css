@@ -1,5 +1,7 @@
 .app-shell {
   width: 100%;
+  max-width: 1680px;
+  margin: 0 auto;
   overflow-x: hidden;
   min-height: 100vh;
   padding: 18px;
@@ -100,7 +102,7 @@
 }
 
 .home-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
 }
 
 .workspace {
@@ -208,11 +210,11 @@ textarea:disabled {
 }
 
 .format-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
 .config-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
 
 .format-card {
@@ -698,6 +700,12 @@ button:disabled {
 
   .side-panel {
     position: static;
+  }
+}
+
+@media (min-width: 1241px) and (max-width: 1500px) {
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
   }
 }
 
