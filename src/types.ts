@@ -5,7 +5,7 @@ export type BracketFormat =
   | 'swiss'
   | 'groups-playoff'
 
-export type TournamentStatus = 'draft' | 'active' | 'complete'
+export type TournamentStatus = 'draft' | 'active' | 'complete' | 'deleted'
 
 export interface Participant {
   id: string

@@ -76,16 +76,40 @@ async function updateViaGoogleSheets(payload: TournamentPayload) {
 
 async function deleteViaGoogleSheets(payload: TournamentPayload) {
   if (!payload.slug || !payload.editToken) throw new Error('Missing edit link token.')
-  const result = await callGoogleSheetApi<{ ok: boolean }>('delete', {
-    slug: payload.slug,
-    editToken: payload.editToken,
-  })
-  if (!result.ok) throw new Error('The edit link is not valid for this tournament.')
+  try {
+    const result = await callGoogleSheetApi<{ ok: boolean }>('delete', {
+      slug: payload.slug,
+      editToken: payload.editToken,
+    })
+    if (!result.ok) throw new Error('The edit link is not valid for this tournament.')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (!message.includes('Unknown action')) throw error
+    await softDeleteViaGoogleSheets(payload)
+  }
 }
 
 async function fetchViaGoogleSheets(slug: string) {
   const result = await callGoogleSheetApi<PublicTournament>('get', { slug })
   return normalizePublic(result)
+}
+
+async function softDeleteViaGoogleSheets(payload: TournamentPayload) {
+  if (!payload.slug || !payload.editToken) throw new Error('Missing edit link token.')
+  await callGoogleSheetApi<{ ok: boolean }>('update', {
+    slug: payload.slug,
+    editToken: payload.editToken,
+    status: 'deleted',
+    payload: {
+      ...payload,
+      title: 'Deleted bracket',
+      status: 'deleted',
+      participants: [],
+      matches: [],
+      editToken: undefined,
+      updatedAt: new Date().toISOString(),
+    },
+  })
 }
 
 async function callGoogleSheetApi<T>(action: string, body: Record<string, unknown>) {
@@ -129,6 +153,9 @@ function normalizePublic(value: unknown): PublicTournament {
     status: TournamentStatus
     payload: TournamentPayload
     updated_at?: string
+  }
+  if (data.status === 'deleted' || data.payload?.status === 'deleted') {
+    throw new Error('Tournament not found.')
   }
   return {
     slug: data.slug,
