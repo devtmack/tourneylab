@@ -1,0 +1,574 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  ArrowDownUp,
+  CalendarClock,
+  Check,
+  Clipboard,
+  Cloud,
+  Eye,
+  FlaskConical,
+  Link,
+  Lock,
+  Plus,
+  RefreshCw,
+  Save,
+  Share2,
+  Shield,
+  Swords,
+  Trophy,
+  Users,
+} from 'lucide-react'
+import './App.css'
+import {
+  addSwissRound,
+  buildGroupPlayoff,
+  createTournament,
+  defaultOptions,
+  formatLabels,
+  generateTournament,
+  groupStandings,
+  playerName,
+  standings,
+  updateMatch,
+} from './brackets'
+import {
+  fetchEditableTournament,
+  fetchPublicTournament,
+  listDrafts,
+  publishTournament,
+  saveDraft,
+  shareUrls,
+  sharingEnabled,
+  updatePublishedTournament,
+} from './storage'
+import type { BracketFormat, Match, Standing, TournamentOptions, TournamentPayload } from './types'
+
+const starterNames = ['Northside FC', 'Summit Crew', 'River City', 'Iron Wolves', 'Metro United', 'Peak State', 'Harbor Club', 'Apex Academy']
+
+const formatIcons: Record<BracketFormat, typeof Trophy> = {
+  'single-elimination': Trophy,
+  'double-elimination': Swords,
+  'round-robin': RefreshCw,
+  swiss: ArrowDownUp,
+  'groups-playoff': Users,
+}
+
+function App() {
+  const [payload, setPayload] = useState<TournamentPayload>()
+  const [readOnly, setReadOnly] = useState(false)
+  const [routeError, setRouteError] = useState('')
+
+  useEffect(() => {
+    const loadRoute = async () => {
+      const hash = window.location.hash
+      const publicMatch = hash.match(/^#\/t\/([^?]+)/)
+      const editMatch = hash.match(/^#\/edit\/([^?]+)/)
+      const params = new URLSearchParams(hash.split('?')[1] ?? '')
+      setRouteError('')
+
+      try {
+        if (publicMatch) {
+          setReadOnly(true)
+          const result = await fetchPublicTournament(publicMatch[1])
+          setPayload(result.payload)
+        } else if (editMatch) {
+          setReadOnly(false)
+          const token = params.get('token') ?? ''
+          const result = await fetchEditableTournament(editMatch[1], token)
+          setPayload(result)
+        }
+      } catch (error) {
+        setRouteError(error instanceof Error ? error.message : 'Unable to load tournament.')
+      }
+    }
+
+    void loadRoute()
+    window.addEventListener('hashchange', loadRoute)
+    return () => window.removeEventListener('hashchange', loadRoute)
+  }, [])
+
+  const handleLocalSave = (next: TournamentPayload) => {
+    setPayload(next)
+    saveDraft(next)
+  }
+
+  return (
+    <main className="app-shell">
+      <Header payload={payload} readOnly={readOnly} />
+      {routeError ? <div className="notice danger">{routeError}</div> : null}
+      {payload ? (
+        <TournamentWorkspace payload={payload} readOnly={readOnly} onChange={handleLocalSave} />
+      ) : (
+        <CreateWorkspace onCreate={handleLocalSave} />
+      )}
+    </main>
+  )
+}
+
+function Header({ payload, readOnly }: { payload?: TournamentPayload; readOnly: boolean }) {
+  return (
+    <header className="topbar">
+      <div className="brand-lockup">
+        <div className="brand-mark">
+          <Trophy size={20} />
+        </div>
+        <div>
+          <div className="brand-name">TourneyLab</div>
+          <div className="brand-subtitle">Bracket maker and shareable tournament command center</div>
+        </div>
+      </div>
+      <div className="topbar-meta">
+        <span className="pill">
+          <Cloud size={14} />
+          {sharingEnabled ? 'Supabase ready' : 'Local mode'}
+        </span>
+        {payload ? (
+          <span className="pill">
+            {readOnly ? <Eye size={14} /> : <Lock size={14} />}
+            {readOnly ? 'Public view' : payload.status}
+          </span>
+        ) : null}
+      </div>
+    </header>
+  )
+}
+
+function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) => void }) {
+  const [title, setTitle] = useState('Summer Showdown')
+  const [format, setFormat] = useState<BracketFormat>('single-elimination')
+  const [names, setNames] = useState(starterNames.join('\n'))
+  const [options, setOptions] = useState<TournamentOptions>(defaultOptions)
+  const drafts = listDrafts()
+
+  const parsedNames = names
+    .split('\n')
+    .map((name) => name.trim())
+    .filter(Boolean)
+
+  const create = () => onCreate(createTournament(title, format, parsedNames, options))
+
+  return (
+    <section className="home-grid">
+      <div className="panel create-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Create</p>
+            <h1>Make a tournament people can actually follow.</h1>
+          </div>
+          <button className="primary-button" onClick={create} disabled={parsedNames.length < 2}>
+            <Plus size={18} />
+            Create bracket
+          </button>
+        </div>
+
+        <label className="field">
+          Tournament name
+          <input value={title} onChange={(event) => setTitle(event.target.value)} />
+        </label>
+
+        <div className="format-grid">
+          {(Object.keys(formatLabels) as BracketFormat[]).map((item) => {
+            const Icon = formatIcons[item]
+            return (
+              <button
+                key={item}
+                className={item === format ? 'format-card selected' : 'format-card'}
+                onClick={() => setFormat(item)}
+              >
+                <Icon size={20} />
+                <span>{formatLabels[item]}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="config-grid">
+          <label className="field">
+            Seeding
+            <select
+              value={options.seeding}
+              onChange={(event) => setOptions({ ...options, seeding: event.target.value as TournamentOptions['seeding'] })}
+            >
+              <option value="manual">Manual order</option>
+              <option value="seeded">Seeded order</option>
+              <option value="random">Random shuffle</option>
+            </select>
+          </label>
+          <label className="field">
+            Match label
+            <input
+              value={options.bestOfLabel}
+              onChange={(event) => setOptions({ ...options, bestOfLabel: event.target.value })}
+            />
+          </label>
+          <label className="field">
+            Swiss rounds
+            <input
+              type="number"
+              min={1}
+              max={12}
+              value={options.swissRounds}
+              onChange={(event) => setOptions({ ...options, swissRounds: Number(event.target.value) })}
+            />
+          </label>
+          <label className="field">
+            Groups
+            <input
+              type="number"
+              min={2}
+              max={8}
+              value={options.groupCount}
+              onChange={(event) => setOptions({ ...options, groupCount: Number(event.target.value) })}
+            />
+          </label>
+          <label className="field">
+            Qualifiers/group
+            <input
+              type="number"
+              min={1}
+              max={4}
+              value={options.qualifiersPerGroup}
+              onChange={(event) => setOptions({ ...options, qualifiersPerGroup: Number(event.target.value) })}
+            />
+          </label>
+          <label className="toggle-field">
+            <input
+              type="checkbox"
+              checked={options.thirdPlace}
+              onChange={(event) => setOptions({ ...options, thirdPlace: event.target.checked })}
+            />
+            Third-place match
+          </label>
+        </div>
+
+        <label className="field">
+          Participants
+          <textarea value={names} onChange={(event) => setNames(event.target.value)} rows={10} />
+        </label>
+        <p className="muted">{parsedNames.length} participants ready.</p>
+      </div>
+
+      <aside className="panel side-panel">
+        <p className="eyebrow">Drafts</p>
+        <h2>Recent local tournaments</h2>
+        <div className="draft-list">
+          {drafts.length ? (
+            drafts.map((draft) => (
+              <button key={draft.id} className="draft-row" onClick={() => onCreate(draft)}>
+                <span>{draft.title}</span>
+                <small>{formatLabels[draft.format]}</small>
+              </button>
+            ))
+          ) : (
+            <div className="empty-state">
+              <FlaskConical size={28} />
+              <p>Your saved drafts will appear here.</p>
+            </div>
+          )}
+        </div>
+      </aside>
+    </section>
+  )
+}
+
+function TournamentWorkspace({
+  payload,
+  readOnly,
+  onChange,
+}: {
+  payload: TournamentPayload
+  readOnly: boolean
+  onChange: (payload: TournamentPayload) => void
+}) {
+  const [message, setMessage] = useState('')
+  const urls = payload.slug ? shareUrls(payload) : undefined
+  const groupedMatches = useMemo(() => groupBy(payload.matches, (match) => match.bracket), [payload.matches])
+
+  const persist = async (next: TournamentPayload) => {
+    onChange(next)
+    if (next.slug && next.editToken) {
+      try {
+        await updatePublishedTournament(next)
+        setMessage('Published tournament updated.')
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Unable to update public tournament.')
+      }
+    }
+  }
+
+  const publish = async () => {
+    try {
+      const next = await publishTournament(payload)
+      onChange(next)
+      setMessage('Share links created. Keep the edit link private.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to publish tournament.')
+    }
+  }
+
+  const copy = async (value: string) => {
+    await navigator.clipboard.writeText(value)
+    setMessage('Copied to clipboard.')
+  }
+
+  return (
+    <section className="workspace">
+      <aside className="panel control-rail">
+        <p className="eyebrow">Tournament</p>
+        <h1>{payload.title}</h1>
+        <div className="stats-grid">
+          <Metric icon={Users} label="Players" value={payload.participants.length} />
+          <Metric icon={CalendarClock} label="Matches" value={payload.matches.length} />
+          <Metric icon={Shield} label="Format" value={formatLabels[payload.format]} />
+        </div>
+
+        {!readOnly ? (
+          <div className="action-stack">
+            <button className="secondary-button" onClick={() => persist(generateTournament(payload))}>
+              <RefreshCw size={16} />
+              Regenerate schedule
+            </button>
+            {payload.format === 'swiss' ? (
+              <button className="secondary-button" onClick={() => persist(addSwissRound(payload))}>
+                <Plus size={16} />
+                Add Swiss round
+              </button>
+            ) : null}
+            {payload.format === 'groups-playoff' ? (
+              <button className="secondary-button" onClick={() => persist(buildGroupPlayoff(payload))}>
+                <Trophy size={16} />
+                Build playoff
+              </button>
+            ) : null}
+            <button className="primary-button" onClick={publish} disabled={!sharingEnabled}>
+              <Share2 size={16} />
+              {payload.slug ? 'Refresh share links' : 'Publish links'}
+            </button>
+            {!sharingEnabled ? <p className="muted">Add Supabase env vars to enable public share links.</p> : null}
+          </div>
+        ) : null}
+
+        {urls?.publicUrl ? (
+          <div className="share-box">
+            <label>
+              Public link
+              <button onClick={() => copy(urls.publicUrl)}>
+                <Clipboard size={14} />
+              </button>
+            </label>
+            <code>{urls.publicUrl}</code>
+            {urls.editUrl ? (
+              <>
+                <label>
+                  Private edit link
+                  <button onClick={() => copy(urls.editUrl)}>
+                    <Clipboard size={14} />
+                  </button>
+                </label>
+                <code>{urls.editUrl}</code>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+
+        {message ? <div className="notice">{message}</div> : null}
+        <StandingsTable payload={payload} />
+      </aside>
+
+      <div className="bracket-stage">
+        <div className="stage-toolbar">
+          <div>
+            <p className="eyebrow">Live board</p>
+            <h2>{readOnly ? 'Shared tournament view' : 'Score editor'}</h2>
+          </div>
+          <a className="ghost-link" href="./">
+            <Link size={16} />
+            New tournament
+          </a>
+        </div>
+
+        <div className="bracket-board">
+          {Object.entries(groupedMatches).map(([bracket, matches]) => (
+            <BracketColumn
+              key={bracket}
+              title={bracket}
+              matches={matches}
+              payload={payload}
+              readOnly={readOnly}
+              onScore={(matchId, scoreA, scoreB) => persist(updateMatch(payload, matchId, scoreA, scoreB))}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Metric({ icon: Icon, label, value }: { icon: typeof Trophy; label: string; value: string | number }) {
+  return (
+    <div className="metric">
+      <Icon size={16} />
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  )
+}
+
+function BracketColumn({
+  title,
+  matches,
+  payload,
+  readOnly,
+  onScore,
+}: {
+  title: string
+  matches: Match[]
+  payload: TournamentPayload
+  readOnly: boolean
+  onScore: (matchId: string, scoreA?: number, scoreB?: number) => void
+}) {
+  const rounds = groupBy(matches, (match) => String(match.round))
+
+  return (
+    <section className="bracket-column">
+      <h3>{title}</h3>
+      <div className="round-strip">
+        {Object.entries(rounds).map(([round, roundMatches]) => (
+          <div key={round} className="round-column">
+            <div className="round-label">Round {round}</div>
+            {roundMatches.map((match) => (
+              <MatchCard
+                key={match.id}
+                match={match}
+                payload={payload}
+                readOnly={readOnly}
+                onScore={(scoreA, scoreB) => onScore(match.id, scoreA, scoreB)}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function MatchCard({
+  match,
+  payload,
+  readOnly,
+  onScore,
+}: {
+  match: Match
+  payload: TournamentPayload
+  readOnly: boolean
+  onScore: (scoreA?: number, scoreB?: number) => void
+}) {
+  const [scoreA, setScoreA] = useState(match.scoreA?.toString() ?? '')
+  const [scoreB, setScoreB] = useState(match.scoreB?.toString() ?? '')
+
+  useEffect(() => {
+    setScoreA(match.scoreA?.toString() ?? '')
+    setScoreB(match.scoreB?.toString() ?? '')
+  }, [match.scoreA, match.scoreB])
+
+  const submit = () => {
+    const a = scoreA === '' ? undefined : Number(scoreA)
+    const b = scoreB === '' ? undefined : Number(scoreB)
+    onScore(a, b)
+  }
+
+  return (
+    <article className={match.winnerId ? 'match-card decided' : 'match-card'}>
+      <div className="match-meta">
+        <span>{match.label}</span>
+        {match.bye ? <span className="mini-pill">Bye</span> : null}
+      </div>
+      <ScoreRow
+        name={playerName(payload.participants, match.participantAId)}
+        winner={match.winnerId === match.participantAId}
+        score={scoreA}
+        readOnly={readOnly}
+        onChange={setScoreA}
+      />
+      <ScoreRow
+        name={playerName(payload.participants, match.participantBId)}
+        winner={match.winnerId === match.participantBId}
+        score={scoreB}
+        readOnly={readOnly}
+        onChange={setScoreB}
+      />
+      {!readOnly ? (
+        <button className="score-button" onClick={submit} disabled={!match.participantAId || !match.participantBId}>
+          <Save size={14} />
+          Save score
+        </button>
+      ) : null}
+    </article>
+  )
+}
+
+function ScoreRow({
+  name,
+  winner,
+  score,
+  readOnly,
+  onChange,
+}: {
+  name: string
+  winner: boolean
+  score: string
+  readOnly: boolean
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className={winner ? 'score-row winner' : 'score-row'}>
+      <span>{winner ? <Check size={14} /> : null}{name}</span>
+      <input
+        aria-label={`${name} score`}
+        value={score}
+        readOnly={readOnly}
+        inputMode="numeric"
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  )
+}
+
+function StandingsTable({ payload }: { payload: TournamentPayload }) {
+  const groups = payload.format === 'groups-playoff' ? groupStandings(payload) : undefined
+  const rows = standings(payload)
+
+  return (
+    <div className="standings">
+      <h2>Standings</h2>
+      {groups
+        ? Object.entries(groups).map(([group, groupRows]) => <StandingRows key={group} title={group} rows={groupRows} payload={payload} />)
+        : <StandingRows title="Overall" rows={rows} payload={payload} />}
+    </div>
+  )
+}
+
+function StandingRows({ title, rows, payload }: { title: string; rows: Standing[]; payload: TournamentPayload }) {
+  return (
+    <div className="standing-group">
+      <h3>{title}</h3>
+      {rows.slice(0, 12).map((row, index) => (
+        <div key={row.participantId} className="standing-row">
+          <span>{index + 1}</span>
+          <strong>{playerName(payload.participants, row.participantId)}</strong>
+          <small>{row.score} pts</small>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function groupBy<T>(items: T[], getKey: (item: T) => string) {
+  return items.reduce<Record<string, T[]>>((groups, item) => {
+    const key = getKey(item)
+    groups[key] = groups[key] ? [...groups[key], item] : [item]
+    return groups
+  }, {})
+}
+
+export default App
