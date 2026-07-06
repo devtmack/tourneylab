@@ -279,7 +279,7 @@ textarea:disabled {
   position: absolute;
   z-index: 20;
   bottom: calc(100% + 8px);
-  left: 50%;
+  left: 0;
   width: min(240px, calc(100vw - 36px));
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
@@ -291,7 +291,7 @@ textarea:disabled {
   opacity: 0;
   padding: 10px;
   pointer-events: none;
-  transform: translate(-50%, 4px);
+  transform: translateY(4px);
   transition:
     opacity 0.16s ease,
     transform 0.16s ease;
@@ -300,7 +300,17 @@ textarea:disabled {
 .help-chip:hover .help-popover,
 .help-chip:focus .help-popover {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translateY(0);
+}
+
+.field-title .help-popover {
+  left: auto;
+  right: 0;
+}
+
+.tip-row .help-chip:last-child .help-popover {
+  left: auto;
+  right: 0;
 }
 
 .toggle-field {
@@ -734,14 +744,4 @@ button:disabled {
     min-width: 820px;
   }
 
-  .help-popover {
-    left: auto;
-    right: 0;
-    transform: translateY(4px);
-  }
-
-  .help-chip:hover .help-popover,
-  .help-chip:focus .help-popover {
-    transform: translateY(0);
-  }
 }
