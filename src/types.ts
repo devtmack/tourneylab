@@ -27,6 +27,8 @@ export interface Match {
   loserId?: string
   sourceA?: string
   sourceB?: string
+  sourceAType?: 'winner' | 'loser'
+  sourceBType?: 'winner' | 'loser'
   bye?: boolean
 }
 

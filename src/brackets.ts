@@ -200,18 +200,65 @@ function buildSingleElimination(participants: Participant[], bracket: string, pr
 function buildDoubleElimination(participants: Participant[]) {
   const winners = buildSingleElimination(participants, 'Winners', 'de-w')
   const size = nextPowerOfTwo(Math.max(2, participants.length))
-  const loserRounds = Math.max(1, Math.log2(size) * 2 - 1)
+  const winnerRounds = Math.log2(size)
   const losers: Match[] = []
+  let previousLoserRound = ''
+  let previousLoserCount = 0
 
-  for (let round = 1; round <= loserRounds; round += 1) {
-    const count = Math.max(1, Math.floor(size / 2 ** Math.ceil(round / 2 + 1)))
-    for (let i = 0; i < count; i += 1) {
+  if (winnerRounds === 1) {
+    previousLoserRound = 'de-w-r1'
+    previousLoserCount = 1
+  } else {
+    const firstLoserCount = size / 4
+    for (let i = 0; i < firstLoserCount; i += 1) {
       losers.push({
-        id: `de-l-r${round}-m${i + 1}`,
-        round,
-        label: `Losers ${round}.${i + 1}`,
+        id: `de-l-r1-m${i + 1}`,
+        round: 1,
+        label: `Losers 1.${i + 1}`,
         bracket: 'Losers',
+        sourceA: `de-w-r1-m${i * 2 + 1}`,
+        sourceAType: 'loser',
+        sourceB: `de-w-r1-m${i * 2 + 2}`,
+        sourceBType: 'loser',
       })
+    }
+    previousLoserRound = 'de-l-r1'
+    previousLoserCount = firstLoserCount
+  }
+
+  let loserRound = 2
+  for (let winnerRound = 2; winnerRound <= winnerRounds; winnerRound += 1) {
+    const incomingLosers = size / 2 ** winnerRound
+    for (let i = 0; i < incomingLosers; i += 1) {
+      losers.push({
+        id: `de-l-r${loserRound}-m${i + 1}`,
+        round: loserRound,
+        label: `Losers ${loserRound}.${i + 1}`,
+        bracket: 'Losers',
+        sourceA: `${previousLoserRound}-m${Math.min(i + 1, previousLoserCount)}`,
+        sourceB: `de-w-r${winnerRound}-m${i + 1}`,
+        sourceBType: 'loser',
+      })
+    }
+    previousLoserRound = `de-l-r${loserRound}`
+    previousLoserCount = incomingLosers
+    loserRound += 1
+
+    if (incomingLosers > 1) {
+      const pairedCount = incomingLosers / 2
+      for (let i = 0; i < pairedCount; i += 1) {
+        losers.push({
+          id: `de-l-r${loserRound}-m${i + 1}`,
+          round: loserRound,
+          label: `Losers ${loserRound}.${i + 1}`,
+          bracket: 'Losers',
+          sourceA: `${previousLoserRound}-m${i * 2 + 1}`,
+          sourceB: `${previousLoserRound}-m${i * 2 + 2}`,
+        })
+      }
+      previousLoserRound = `de-l-r${loserRound}`
+      previousLoserCount = pairedCount
+      loserRound += 1
     }
   }
 
@@ -223,6 +270,9 @@ function buildDoubleElimination(participants: Participant[]) {
       round: Math.log2(size) + 1,
       label: 'Grand final',
       bracket: 'Grand final',
+      sourceA: `de-w-r${winnerRounds}-m1`,
+      sourceB: previousLoserRound ? `${previousLoserRound}-m1` : `de-w-r${winnerRounds}-m1`,
+      sourceBType: winnerRounds === 1 ? ('loser' as const) : undefined,
     },
   ]
 }
@@ -314,11 +364,13 @@ function advanceMatches(payload: TournamentPayload) {
   matches.forEach((match) => {
     if (match.sourceA) {
       const source = byId.get(match.sourceA)
-      match.participantAId = match.id.endsWith('third-place') ? source?.loserId : source?.winnerId
+      match.participantAId =
+        match.id.endsWith('third-place') || match.sourceAType === 'loser' ? source?.loserId : source?.winnerId
     }
     if (match.sourceB) {
       const source = byId.get(match.sourceB)
-      match.participantBId = match.id.endsWith('third-place') ? source?.loserId : source?.winnerId
+      match.participantBId =
+        match.id.endsWith('third-place') || match.sourceBType === 'loser' ? source?.loserId : source?.winnerId
     }
     if (match.participantAId && !match.participantBId && match.bye) match.winnerId = match.participantAId
     if (!match.participantAId && match.participantBId && match.bye) match.winnerId = match.participantBId
