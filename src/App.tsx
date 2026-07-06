@@ -403,7 +403,7 @@ function TournamentWorkspace({
             <p>
               {sharingEnabled
                 ? `Publish this tournament to store it in ${storageLabel}. Viewers can watch the public link update while scores are saved.`
-                : 'Real public sharing needs Google Sheets or Supabase env vars. Local drafts only save on this device.'}
+                : 'Real public sharing needs a Google Apps Script URL. Local drafts only save on this device.'}
             </p>
           </div>
         </div>
@@ -430,7 +430,7 @@ function TournamentWorkspace({
               <Share2 size={16} />
               {payload.slug ? 'Update database links' : 'Publish to database'}
             </button>
-            {!sharingEnabled ? <p className="muted">Add a Google Apps Script URL or Supabase env vars to enable public share links.</p> : null}
+            {!sharingEnabled ? <p className="muted">Add a Google Apps Script URL to enable public share links.</p> : null}
           </div>
         ) : null}
 

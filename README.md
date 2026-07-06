@@ -24,9 +24,9 @@ pnpm test
 pnpm build
 ```
 
-## Google Sheets Setup
+## Google Sheets Database Setup
 
-The easiest database option is Google Sheets with Apps Script. GitHub Pages still hosts the app, and the Sheet stores tournaments.
+TourneyLab runs from GitHub Pages and uses Google Sheets as the database. No Supabase or separate backend is required.
 
 1. Create a new Google Sheet.
 2. Open Extensions -> Apps Script.
@@ -43,36 +43,13 @@ VITE_GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/your-deployment-i
 
 Public links use `/#/t/:slug`. Spectator pages poll the Sheet every 10 seconds, so score changes saved from the private edit link show up while the tournament is happening.
 
-## Supabase Setup
-
-Supabase is still supported if you prefer it over Google Sheets.
-
-1. Create a Supabase project.
-2. Run `supabase.sql` in the Supabase SQL editor.
-3. Copy `.env.example` to `.env.local`.
-4. Set:
-
-```bash
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-```
-
-The app stores public tournament data in the `tournaments` table. Public links are read-only. Edit links include a private token; only the SHA-256 hash is stored.
-
 ## GitHub Pages
 
 The Vite base path is `/tourneylab/`. The included workflow deploys `main` to GitHub Pages.
 
-Add one of these database options as repository secrets before publishing if shared links should work in production.
-
-Google Sheets:
+Add this repository secret before publishing if shared links should work in production:
 
 - `VITE_GOOGLE_APPS_SCRIPT_URL`
-
-Supabase:
-
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
 
 The target URL is:
 

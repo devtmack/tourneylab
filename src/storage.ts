@@ -1,15 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
 import type { BracketFormat, PublicTournament, TournamentPayload, TournamentStatus } from './types'
 
 const LOCAL_KEY = 'tourneylab:drafts'
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 const googleAppsScriptUrl = import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL as string | undefined
 
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : undefined
-
-export const sharingEnabled = Boolean(googleAppsScriptUrl || supabase)
-export const storageLabel = googleAppsScriptUrl ? 'Google Sheets' : supabase ? 'Supabase' : 'Local only'
+export const sharingEnabled = Boolean(googleAppsScriptUrl)
+export const storageLabel = googleAppsScriptUrl ? 'Google Sheets' : 'Local only'
 
 export function listDrafts() {
   return readDrafts().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -25,63 +20,19 @@ export function loadDraft(id: string) {
 }
 
 export async function publishTournament(payload: TournamentPayload) {
-  if (googleAppsScriptUrl) return publishViaGoogleSheets(payload)
-  if (!supabase) throw new Error('Supabase is not configured yet.')
-  const editToken = randomToken()
-  const editTokenHash = await sha256(editToken)
-  const payloadForShare = { ...payload, editToken: undefined }
-  const { data, error } = await supabase.rpc('create_tournament', {
-    input_title: payload.title,
-    input_format: payload.format,
-    input_status: payload.status,
-    input_payload: payloadForShare,
-    input_edit_token_hash: editTokenHash,
-  })
-
-  if (error) throw error
-  const slug = String(data)
-  return {
-    ...payload,
-    slug,
-    editToken,
-  }
+  return publishViaGoogleSheets(payload)
 }
 
 export async function updatePublishedTournament(payload: TournamentPayload) {
-  if (googleAppsScriptUrl) return updateViaGoogleSheets(payload)
-  if (!supabase) throw new Error('Supabase is not configured yet.')
-  if (!payload.slug || !payload.editToken) throw new Error('Missing edit link token.')
-  const payloadForShare = { ...payload, editToken: undefined }
-  const { data, error } = await supabase.rpc('update_tournament', {
-    input_slug: payload.slug,
-    input_edit_token: payload.editToken,
-    input_status: payload.status,
-    input_payload: payloadForShare,
-  })
-  if (error) throw error
-  if (data !== true) throw new Error('The edit link is not valid for this tournament.')
+  return updateViaGoogleSheets(payload)
 }
 
 export async function fetchPublicTournament(slug: string) {
-  if (googleAppsScriptUrl) return fetchViaGoogleSheets(slug)
-  if (!supabase) throw new Error('Supabase is not configured yet.')
-  const { data, error } = await supabase.rpc('get_public_tournament', { input_slug: slug })
-  if (error) throw error
-  return normalizePublic(data)
+  return fetchViaGoogleSheets(slug)
 }
 
 export async function fetchEditableTournament(slug: string, token: string) {
-  if (googleAppsScriptUrl) {
-    const publicData = await fetchViaGoogleSheets(slug)
-    return { ...publicData.payload, slug, editToken: token }
-  }
-  if (!supabase) throw new Error('Supabase is not configured yet.')
-  const { data, error } = await supabase.rpc('get_editable_tournament', {
-    input_slug: slug,
-    input_edit_token: token,
-  })
-  if (error) throw error
-  const publicData = normalizePublic(data)
+  const publicData = await fetchViaGoogleSheets(slug)
   return { ...publicData.payload, slug, editToken: token }
 }
 
