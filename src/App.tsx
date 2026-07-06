@@ -41,6 +41,7 @@ import {
   saveDraft,
   shareUrls,
   sharingEnabled,
+  storageLabel,
   updatePublishedTournament,
 } from './storage'
 import type { BracketFormat, Match, Standing, TournamentOptions, TournamentPayload } from './types'
@@ -136,7 +137,7 @@ function Header({ payload, readOnly }: { payload?: TournamentPayload; readOnly: 
       <div className="topbar-meta">
         <span className="pill">
           <Cloud size={14} />
-          {sharingEnabled ? 'Supabase ready' : 'Local mode'}
+          {sharingEnabled ? `${storageLabel} ready` : 'Local mode'}
         </span>
         {payload ? (
           <span className="pill">
@@ -398,11 +399,11 @@ function TournamentWorkspace({
         <div className={sharingEnabled ? 'database-card ready' : 'database-card'}>
           <Database size={18} />
           <div>
-            <strong>{sharingEnabled ? 'Database sharing ready' : 'Database not connected'}</strong>
+            <strong>{sharingEnabled ? `${storageLabel} sharing ready` : 'Database not connected'}</strong>
             <p>
               {sharingEnabled
-                ? 'Publish this tournament to store it in Supabase. Viewers can watch the public link update while scores are saved.'
-                : 'Real public sharing needs Supabase env vars. Local drafts only save on this device.'}
+                ? `Publish this tournament to store it in ${storageLabel}. Viewers can watch the public link update while scores are saved.`
+                : 'Real public sharing needs Google Sheets or Supabase env vars. Local drafts only save on this device.'}
             </p>
           </div>
         </div>
@@ -429,7 +430,7 @@ function TournamentWorkspace({
               <Share2 size={16} />
               {payload.slug ? 'Update database links' : 'Publish to database'}
             </button>
-            {!sharingEnabled ? <p className="muted">Add Supabase env vars to enable public share links.</p> : null}
+            {!sharingEnabled ? <p className="muted">Add a Google Apps Script URL or Supabase env vars to enable public share links.</p> : null}
           </div>
         ) : null}
 

@@ -4,10 +4,12 @@ import type { BracketFormat, PublicTournament, TournamentPayload, TournamentStat
 const LOCAL_KEY = 'tourneylab:drafts'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+const googleAppsScriptUrl = import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL as string | undefined
 
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : undefined
 
-export const sharingEnabled = Boolean(supabase)
+export const sharingEnabled = Boolean(googleAppsScriptUrl || supabase)
+export const storageLabel = googleAppsScriptUrl ? 'Google Sheets' : supabase ? 'Supabase' : 'Local only'
 
 export function listDrafts() {
   return readDrafts().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -23,6 +25,7 @@ export function loadDraft(id: string) {
 }
 
 export async function publishTournament(payload: TournamentPayload) {
+  if (googleAppsScriptUrl) return publishViaGoogleSheets(payload)
   if (!supabase) throw new Error('Supabase is not configured yet.')
   const editToken = randomToken()
   const editTokenHash = await sha256(editToken)
@@ -45,6 +48,7 @@ export async function publishTournament(payload: TournamentPayload) {
 }
 
 export async function updatePublishedTournament(payload: TournamentPayload) {
+  if (googleAppsScriptUrl) return updateViaGoogleSheets(payload)
   if (!supabase) throw new Error('Supabase is not configured yet.')
   if (!payload.slug || !payload.editToken) throw new Error('Missing edit link token.')
   const payloadForShare = { ...payload, editToken: undefined }
@@ -59,6 +63,7 @@ export async function updatePublishedTournament(payload: TournamentPayload) {
 }
 
 export async function fetchPublicTournament(slug: string) {
+  if (googleAppsScriptUrl) return fetchViaGoogleSheets(slug)
   if (!supabase) throw new Error('Supabase is not configured yet.')
   const { data, error } = await supabase.rpc('get_public_tournament', { input_slug: slug })
   if (error) throw error
@@ -66,6 +71,10 @@ export async function fetchPublicTournament(slug: string) {
 }
 
 export async function fetchEditableTournament(slug: string, token: string) {
+  if (googleAppsScriptUrl) {
+    const publicData = await fetchViaGoogleSheets(slug)
+    return { ...publicData.payload, slug, editToken: token }
+  }
   if (!supabase) throw new Error('Supabase is not configured yet.')
   const { data, error } = await supabase.rpc('get_editable_tournament', {
     input_slug: slug,
@@ -74,6 +83,52 @@ export async function fetchEditableTournament(slug: string, token: string) {
   if (error) throw error
   const publicData = normalizePublic(data)
   return { ...publicData.payload, slug, editToken: token }
+}
+
+async function publishViaGoogleSheets(payload: TournamentPayload) {
+  const editToken = randomToken()
+  const editTokenHash = await sha256(editToken)
+  const result = await callGoogleSheetApi<{ slug: string }>('create', {
+    title: payload.title,
+    format: payload.format,
+    status: payload.status,
+    payload: { ...payload, editToken: undefined },
+    editTokenHash,
+  })
+
+  return {
+    ...payload,
+    slug: result.slug,
+    editToken,
+  }
+}
+
+async function updateViaGoogleSheets(payload: TournamentPayload) {
+  if (!payload.slug || !payload.editToken) throw new Error('Missing edit link token.')
+  const result = await callGoogleSheetApi<{ ok: boolean }>('update', {
+    slug: payload.slug,
+    editToken: payload.editToken,
+    status: payload.status,
+    payload: { ...payload, editToken: undefined },
+  })
+  if (!result.ok) throw new Error('The edit link is not valid for this tournament.')
+}
+
+async function fetchViaGoogleSheets(slug: string) {
+  const result = await callGoogleSheetApi<PublicTournament>('get', { slug })
+  return normalizePublic(result)
+}
+
+async function callGoogleSheetApi<T>(action: string, body: Record<string, unknown>) {
+  if (!googleAppsScriptUrl) throw new Error('Google Sheets is not configured yet.')
+  const response = await fetch(googleAppsScriptUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, ...body }),
+  })
+  const data = (await response.json()) as { ok?: boolean; error?: string } & T
+  if (!response.ok || data.ok === false) throw new Error(data.error ?? 'Google Sheets request failed.')
+  return data
 }
 
 export function shareUrls(payload: TournamentPayload) {
