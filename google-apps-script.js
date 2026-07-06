@@ -18,6 +18,10 @@ function doPost(event) {
       return json(updateTournament(sheet, request));
     }
 
+    if (request.action === 'delete') {
+      return json(deleteTournament(sheet, request));
+    }
+
     return json({ ok: false, error: 'Unknown action.' }, 400);
   } catch (error) {
     return json({ ok: false, error: String(error.message || error) }, 500);
@@ -87,6 +91,19 @@ function updateTournament(sheet, request) {
   ];
 
   sheet.getRange(found.index, 1, 1, HEADERS.length).setValues([values]);
+  return { ok: true };
+}
+
+function deleteTournament(sheet, request) {
+  const found = findRow(sheet, request.slug);
+  if (!found) return { ok: false, error: 'Tournament not found.' };
+
+  const incomingHash = sha256(request.editToken || '');
+  if (incomingHash !== found.row.edit_token_hash) {
+    return { ok: false, error: 'The edit link is not valid for this tournament.' };
+  }
+
+  sheet.deleteRow(found.index);
   return { ok: true };
 }
 

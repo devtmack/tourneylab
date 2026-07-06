@@ -18,6 +18,7 @@ import {
   Shield,
   Swords,
   Trophy,
+  Trash2,
   Users,
 } from 'lucide-react'
 import './App.css'
@@ -34,6 +35,8 @@ import {
   updateMatch,
 } from './brackets'
 import {
+  deleteDraft,
+  deletePublishedTournament,
   fetchEditableTournament,
   fetchPublicTournament,
   listDrafts,
@@ -380,6 +383,23 @@ function TournamentWorkspace({
     }
   }
 
+  const deleteBracket = async () => {
+    const target = payload.slug ? 'this published bracket and remove it from the database' : 'this local bracket'
+    if (!window.confirm(`Delete ${target}? This cannot be undone.`)) return
+
+    try {
+      if (payload.slug && payload.editToken) {
+        await deletePublishedTournament(payload)
+      }
+      deleteDraft(payload.id)
+      setMessage('Bracket deleted.')
+      window.location.hash = ''
+      window.location.reload()
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to delete bracket.')
+    }
+  }
+
   const copy = async (value: string) => {
     await navigator.clipboard.writeText(value)
     setMessage('Copied to clipboard.')
@@ -429,6 +449,10 @@ function TournamentWorkspace({
             <button className="primary-button" onClick={publish} disabled={!sharingEnabled}>
               <Share2 size={16} />
               {payload.slug ? 'Update database links' : 'Publish to database'}
+            </button>
+            <button className="danger-button" onClick={deleteBracket}>
+              <Trash2 size={16} />
+              Delete bracket
             </button>
             {!sharingEnabled ? <p className="muted">Add a Google Apps Script URL to enable public share links.</p> : null}
           </div>

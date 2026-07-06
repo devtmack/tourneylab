@@ -2,8 +2,6 @@
 
 TourneyLab is a polished tournament and bracket maker for creating, scoring, and sharing tournaments.
 
-Deployment check: database variable rebuild.
-
 ## Formats
 
 - Single elimination
@@ -44,6 +42,8 @@ VITE_GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/your-deployment-i
 ```
 
 Public links use `/#/t/:slug`. Spectator pages poll the Sheet every 10 seconds, so score changes saved from the private edit link show up while the tournament is happening.
+
+When `google-apps-script.js` changes, create a new Apps Script web app deployment version so the live database API gets the update.
 
 ## GitHub Pages
 

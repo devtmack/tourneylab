@@ -15,6 +15,11 @@ export function saveDraft(payload: TournamentPayload) {
   localStorage.setItem(LOCAL_KEY, JSON.stringify([payload, ...drafts].slice(0, 30)))
 }
 
+export function deleteDraft(id: string) {
+  const drafts = readDrafts().filter((draft) => draft.id !== id)
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(drafts))
+}
+
 export function loadDraft(id: string) {
   return readDrafts().find((draft) => draft.id === id)
 }
@@ -25,6 +30,10 @@ export async function publishTournament(payload: TournamentPayload) {
 
 export async function updatePublishedTournament(payload: TournamentPayload) {
   return updateViaGoogleSheets(payload)
+}
+
+export async function deletePublishedTournament(payload: TournamentPayload) {
+  return deleteViaGoogleSheets(payload)
 }
 
 export async function fetchPublicTournament(slug: string) {
@@ -61,6 +70,15 @@ async function updateViaGoogleSheets(payload: TournamentPayload) {
     editToken: payload.editToken,
     status: payload.status,
     payload: { ...payload, editToken: undefined },
+  })
+  if (!result.ok) throw new Error('The edit link is not valid for this tournament.')
+}
+
+async function deleteViaGoogleSheets(payload: TournamentPayload) {
+  if (!payload.slug || !payload.editToken) throw new Error('Missing edit link token.')
+  const result = await callGoogleSheetApi<{ ok: boolean }>('delete', {
+    slug: payload.slug,
+    editToken: payload.editToken,
   })
   if (!result.ok) throw new Error('The edit link is not valid for this tournament.')
 }
