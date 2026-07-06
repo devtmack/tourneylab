@@ -48,13 +48,14 @@ export async function updatePublishedTournament(payload: TournamentPayload) {
   if (!supabase) throw new Error('Supabase is not configured yet.')
   if (!payload.slug || !payload.editToken) throw new Error('Missing edit link token.')
   const payloadForShare = { ...payload, editToken: undefined }
-  const { error } = await supabase.rpc('update_tournament', {
+  const { data, error } = await supabase.rpc('update_tournament', {
     input_slug: payload.slug,
     input_edit_token: payload.editToken,
     input_status: payload.status,
     input_payload: payloadForShare,
   })
   if (error) throw error
+  if (data !== true) throw new Error('The edit link is not valid for this tournament.')
 }
 
 export async function fetchPublicTournament(slug: string) {
@@ -96,6 +97,7 @@ function readDrafts(): TournamentPayload[] {
 
 function normalizePublic(value: unknown): PublicTournament {
   const row = Array.isArray(value) ? value[0] : value
+  if (!row) throw new Error('Tournament not found.')
   const data = row as {
     slug: string
     title: string

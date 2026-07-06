@@ -26,11 +26,16 @@
 .topbar-meta,
 .panel-heading,
 .stage-toolbar,
+.stage-actions,
 .score-row,
 .match-meta,
 .metric,
 .standing-row,
-.share-box label {
+.share-box label,
+.database-card,
+.spectator-card,
+.field-title,
+.tip-row {
   display: flex;
   align-items: center;
 }
@@ -205,9 +210,76 @@ textarea:focus {
   text-align: left;
 }
 
+.format-card small {
+  color: #9da7b8;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .format-card.selected {
   border-color: rgba(127, 176, 255, 0.8);
   background: linear-gradient(135deg, rgba(31, 122, 255, 0.24), rgba(255, 61, 113, 0.14));
+}
+
+.tip-row {
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0 2px;
+}
+
+.field-title {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.help-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  border: 1px solid rgba(127, 176, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(31, 122, 255, 0.12);
+  color: #dce9ff;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.help-chip.compact {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+}
+
+.help-popover {
+  position: absolute;
+  z-index: 20;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 240px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: #101624;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+  color: #dce4f2;
+  font-weight: 600;
+  line-height: 1.45;
+  opacity: 0;
+  padding: 10px;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.help-chip:hover .help-popover,
+.help-chip:focus .help-popover {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .toggle-field {
@@ -267,6 +339,36 @@ button:disabled {
   display: grid;
   gap: 10px;
   margin-top: 16px;
+}
+
+.database-card,
+.spectator-card {
+  gap: 10px;
+  margin-top: 14px;
+  border: 1px solid rgba(255, 193, 7, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 193, 7, 0.09);
+  padding: 12px;
+}
+
+.database-card.ready,
+.spectator-card {
+  border-color: rgba(52, 211, 153, 0.24);
+  background: rgba(52, 211, 153, 0.09);
+}
+
+.database-card strong,
+.spectator-card strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.database-card p,
+.spectator-card p {
+  margin: 0;
+  color: #bac4d3;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .draft-row {
@@ -358,6 +460,11 @@ button:disabled {
   margin-bottom: 14px;
 }
 
+.stage-actions {
+  gap: 8px;
+  margin-left: auto;
+}
+
 .bracket-board {
   display: flex;
   gap: 16px;
@@ -378,13 +485,44 @@ button:disabled {
 .round-strip {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 22px;
 }
 
 .round-column {
   display: grid;
   min-width: 240px;
   gap: 10px;
+  align-content: start;
+}
+
+.bracket-visual .round-column {
+  position: relative;
+}
+
+.bracket-visual .round-column:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 78px;
+  right: -13px;
+  bottom: 32px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(127, 176, 255, 0.5), transparent);
+}
+
+.bracket-visual .round-depth-2 {
+  padding-top: 38px;
+  gap: 88px;
+}
+
+.bracket-visual .round-depth-3 {
+  padding-top: 108px;
+  gap: 188px;
+}
+
+.bracket-visual .round-depth-4,
+.bracket-visual .round-depth-5 {
+  padding-top: 178px;
+  gap: 288px;
 }
 
 .round-label {
@@ -396,12 +534,27 @@ button:disabled {
 }
 
 .match-card {
+  position: relative;
   display: grid;
   gap: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  background: rgba(5, 7, 12, 0.72);
+  background: linear-gradient(180deg, rgba(16, 22, 36, 0.92), rgba(5, 7, 12, 0.82));
   padding: 10px;
+}
+
+.bracket-visual .match-card::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -23px;
+  width: 22px;
+  height: 1px;
+  background: rgba(127, 176, 255, 0.46);
+}
+
+.bracket-visual .round-column:last-child .match-card::after {
+  display: none;
 }
 
 .match-card.decided {
@@ -450,6 +603,13 @@ button:disabled {
   min-height: 32px;
   color: #dce4f2;
   font-size: 12px;
+}
+
+.score-button:hover:not(:disabled),
+.secondary-button:hover:not(:disabled),
+.ghost-link:hover {
+  border-color: rgba(127, 176, 255, 0.5);
+  background: rgba(127, 176, 255, 0.12);
 }
 
 .standings {
@@ -522,5 +682,10 @@ button:disabled {
 
   .bracket-column {
     min-width: 820px;
+  }
+
+  .help-popover {
+    left: auto;
+    right: 0;
   }
 }

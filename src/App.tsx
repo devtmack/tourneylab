@@ -5,8 +5,10 @@ import {
   Check,
   Clipboard,
   Cloud,
+  Database,
   Eye,
   FlaskConical,
+  Info,
   Link,
   Lock,
   Plus,
@@ -53,6 +55,20 @@ const formatIcons: Record<BracketFormat, typeof Trophy> = {
   'groups-playoff': Users,
 }
 
+const formatHelp: Record<BracketFormat, string> = {
+  'single-elimination': 'One loss and a team is out. Fast, familiar, and best for simple playoffs.',
+  'double-elimination': 'Teams drop into a losers side after one loss. A second loss eliminates them.',
+  'round-robin': 'Everyone plays everyone. Best when standings matter more than a knockout bracket.',
+  swiss: 'Players with similar records are paired each round. Great for bigger events with fixed rounds.',
+  'groups-playoff': 'Round-robin groups qualify top teams into a final playoff bracket.',
+}
+
+const setupTips = [
+  { label: 'Names', text: 'Paste one player or team per line. You can reorder the list to control manual seeding.' },
+  { label: 'Seeding', text: 'Manual keeps your list order, random shuffles everyone, seeded treats the list as seed order.' },
+  { label: 'Sharing', text: 'Publish creates a spectator link and a private edit link. Spectators auto-refresh while matches are scored.' },
+]
+
 function App() {
   const [payload, setPayload] = useState<TournamentPayload>()
   const [readOnly, setReadOnly] = useState(false)
@@ -70,7 +86,7 @@ function App() {
         if (publicMatch) {
           setReadOnly(true)
           const result = await fetchPublicTournament(publicMatch[1])
-          setPayload(result.payload)
+          setPayload({ ...result.payload, slug: result.slug })
         } else if (editMatch) {
           setReadOnly(false)
           const token = params.get('token') ?? ''
@@ -177,14 +193,24 @@ function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) 
               >
                 <Icon size={20} />
                 <span>{formatLabels[item]}</span>
+                <small>{formatHelp[item]}</small>
               </button>
             )
           })}
         </div>
 
+        <div className="tip-row">
+          {setupTips.map((tip) => (
+            <HelpChip key={tip.label} label={tip.label} text={tip.text} />
+          ))}
+        </div>
+
         <div className="config-grid">
           <label className="field">
-            Seeding
+            <span className="field-title">
+              Seeding
+              <HelpChip compact label="?" text="Use manual order for hand-made seeds, random for casual events, or seeded order for ranked players." />
+            </span>
             <select
               value={options.seeding}
               onChange={(event) => setOptions({ ...options, seeding: event.target.value as TournamentOptions['seeding'] })}
@@ -195,14 +221,20 @@ function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) 
             </select>
           </label>
           <label className="field">
-            Match label
+            <span className="field-title">
+              Match label
+              <HelpChip compact label="?" text="This appears on the event card so players know if each match is best of 1, 3, 5, or another rule." />
+            </span>
             <input
               value={options.bestOfLabel}
               onChange={(event) => setOptions({ ...options, bestOfLabel: event.target.value })}
             />
           </label>
           <label className="field">
-            Swiss rounds
+            <span className="field-title">
+              Swiss rounds
+              <HelpChip compact label="?" text="Swiss events use a fixed number of rounds. Four rounds works well for 8-16 players." />
+            </span>
             <input
               type="number"
               min={1}
@@ -212,7 +244,10 @@ function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) 
             />
           </label>
           <label className="field">
-            Groups
+            <span className="field-title">
+              Groups
+              <HelpChip compact label="?" text="Group-stage tournaments split players into pools before building the playoff bracket." />
+            </span>
             <input
               type="number"
               min={2}
@@ -222,7 +257,10 @@ function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) 
             />
           </label>
           <label className="field">
-            Qualifiers/group
+            <span className="field-title">
+              Qualifiers/group
+              <HelpChip compact label="?" text="This many top players from each group advance when you press Build playoff." />
+            </span>
             <input
               type="number"
               min={1}
@@ -242,7 +280,10 @@ function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) 
         </div>
 
         <label className="field">
-          Participants
+          <span className="field-title">
+            Participants
+            <HelpChip compact label="?" text="Paste or type one name per line. The bracket will be generated from this list." />
+          </span>
           <textarea value={names} onChange={(event) => setNames(event.target.value)} rows={10} />
         </label>
         <p className="muted">{parsedNames.length} participants ready.</p>
@@ -271,6 +312,15 @@ function CreateWorkspace({ onCreate }: { onCreate: (payload: TournamentPayload) 
   )
 }
 
+function HelpChip({ label, text, compact = false }: { label: string; text: string; compact?: boolean }) {
+  return (
+    <span className={compact ? 'help-chip compact' : 'help-chip'} tabIndex={0}>
+      {compact ? <Info size={12} /> : label}
+      <span className="help-popover">{text}</span>
+    </span>
+  )
+}
+
 function TournamentWorkspace({
   payload,
   readOnly,
@@ -281,8 +331,31 @@ function TournamentWorkspace({
   onChange: (payload: TournamentPayload) => void
 }) {
   const [message, setMessage] = useState('')
+  const [lastSync, setLastSync] = useState('')
   const urls = payload.slug ? shareUrls(payload) : undefined
   const groupedMatches = useMemo(() => groupBy(payload.matches, (match) => match.bracket), [payload.matches])
+
+  useEffect(() => {
+    if (!readOnly || !payload.slug || !sharingEnabled) return undefined
+    let cancelled = false
+    const refresh = async () => {
+      try {
+        const result = await fetchPublicTournament(payload.slug!)
+        if (!cancelled) {
+          onChange({ ...result.payload, slug: result.slug })
+          setLastSync(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' }))
+        }
+      } catch {
+        if (!cancelled) setMessage('Live refresh paused. Reopen the public link if the event does not update.')
+      }
+    }
+    const timer = window.setInterval(refresh, 10000)
+    void refresh()
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [onChange, payload.slug, readOnly])
 
   const persist = async (next: TournamentPayload) => {
     onChange(next)
@@ -322,6 +395,18 @@ function TournamentWorkspace({
           <Metric icon={Shield} label="Format" value={formatLabels[payload.format]} />
         </div>
 
+        <div className={sharingEnabled ? 'database-card ready' : 'database-card'}>
+          <Database size={18} />
+          <div>
+            <strong>{sharingEnabled ? 'Database sharing ready' : 'Database not connected'}</strong>
+            <p>
+              {sharingEnabled
+                ? 'Publish this tournament to store it in Supabase. Viewers can watch the public link update while scores are saved.'
+                : 'Real public sharing needs Supabase env vars. Local drafts only save on this device.'}
+            </p>
+          </div>
+        </div>
+
         {!readOnly ? (
           <div className="action-stack">
             <button className="secondary-button" onClick={() => persist(generateTournament(payload))}>
@@ -342,7 +427,7 @@ function TournamentWorkspace({
             ) : null}
             <button className="primary-button" onClick={publish} disabled={!sharingEnabled}>
               <Share2 size={16} />
-              {payload.slug ? 'Refresh share links' : 'Publish links'}
+              {payload.slug ? 'Update database links' : 'Publish to database'}
             </button>
             {!sharingEnabled ? <p className="muted">Add Supabase env vars to enable public share links.</p> : null}
           </div>
@@ -371,6 +456,16 @@ function TournamentWorkspace({
           </div>
         ) : null}
 
+        {readOnly ? (
+          <div className="spectator-card">
+            <Eye size={18} />
+            <div>
+              <strong>Live spectator mode</strong>
+              <p>{lastSync ? `Auto-refreshing every 10 seconds. Last checked ${lastSync}.` : 'Waiting for the latest scores.'}</p>
+            </div>
+          </div>
+        ) : null}
+
         {message ? <div className="notice">{message}</div> : null}
         <StandingsTable payload={payload} />
       </aside>
@@ -381,13 +476,19 @@ function TournamentWorkspace({
             <p className="eyebrow">Live board</p>
             <h2>{readOnly ? 'Shared tournament view' : 'Score editor'}</h2>
           </div>
+          <div className="stage-actions">
+            <span className="pill">
+              <Eye size={14} />
+              {payload.slug ? 'Share link ready' : 'Publish for spectators'}
+            </span>
+          </div>
           <a className="ghost-link" href="./">
             <Link size={16} />
             New tournament
           </a>
         </div>
 
-        <div className="bracket-board">
+        <div className={isTrueBracket(payload.format) ? 'bracket-board bracket-visual' : 'bracket-board'}>
           {Object.entries(groupedMatches).map(([bracket, matches]) => (
             <BracketColumn
               key={bracket}
@@ -434,7 +535,7 @@ function BracketColumn({
       <h3>{title}</h3>
       <div className="round-strip">
         {Object.entries(rounds).map(([round, roundMatches]) => (
-          <div key={round} className="round-column">
+          <div key={round} className={`round-column round-depth-${Math.min(Number(round), 5)}`} data-round={round}>
             <div className="round-label">Round {round}</div>
             {roundMatches.map((match) => (
               <MatchCard
@@ -500,7 +601,7 @@ function MatchCard({
       {!readOnly ? (
         <button className="score-button" onClick={submit} disabled={!match.participantAId || !match.participantBId}>
           <Save size={14} />
-          Save score
+          Save and update viewers
         </button>
       ) : null}
     </article>
@@ -569,6 +670,10 @@ function groupBy<T>(items: T[], getKey: (item: T) => string) {
     groups[key] = groups[key] ? [...groups[key], item] : [item]
     return groups
   }, {})
+}
+
+function isTrueBracket(format: BracketFormat) {
+  return format === 'single-elimination' || format === 'double-elimination' || format === 'groups-playoff'
 }
 
 export default App

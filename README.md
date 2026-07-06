@@ -40,6 +40,8 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 The app stores public tournament data in the `tournaments` table. Public links are read-only. Edit links include a private token; only the SHA-256 hash is stored in Supabase.
 
+Spectators use `/#/t/:slug` links. Those pages poll Supabase every 10 seconds, so score changes saved from the private edit link show up while the tournament is happening.
+
 ## GitHub Pages
 
 The Vite base path is `/tourneylab/`. The included workflow deploys `main` to GitHub Pages.
