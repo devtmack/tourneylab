@@ -2,6 +2,8 @@
 
 TourneyLab is a polished tournament and bracket maker for creating, scoring, and sharing tournaments.
 
+Deployment check: database variable rebuild.
+
 ## Formats
 
 - Single elimination
